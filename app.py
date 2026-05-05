@@ -34,12 +34,12 @@ alarm_state = {
 
 # ── Centralized demo machine data (single source of truth) ───────────────────
 DEMO_MACHINES = [
-    {"name": "Reactor R-401", "machineId": "R-401", "status": "running", "pressure": 90, "vibration": 1.2, "temperature": 112},
-    {"name": "Feed Pump P-101", "machineId": "P-101", "status": "running", "pressure": 85, "vibration": 0.8, "temperature": 42},
-    {"name": "Compressor K1", "machineId": "K1", "status": "standby", "pressure": 0, "vibration": 0, "temperature": 0},
-    {"name": "Separator S-101", "machineId": "S-101", "status": "running", "pressure": 55, "vibration": 0.5, "temperature": 38},
-    {"name": "Heat Exchanger E1", "machineId": "E1", "status": "running", "pressure": 75, "vibration": 0.3, "temperature": 76},
-    {"name": "Pump P-202", "machineId": "P-202", "status": "fault", "pressure": 22, "vibration": 4.1, "temperature": 88},
+    {"name": "Reactor R-401", "machineId": "R-401", "status": "running", "pressure": 90, "vibration": 1.2, "temperature": 112, "health": 94},
+    {"name": "Feed Pump P-101", "machineId": "P-101", "status": "running", "pressure": 85, "vibration": 0.8, "temperature": 42, "health": 98},
+    {"name": "Compressor K1", "machineId": "K1", "status": "standby", "pressure": 0, "vibration": 0, "temperature": 0, "health": 85},
+    {"name": "Separator S-101", "machineId": "S-101", "status": "running", "pressure": 55, "vibration": 0.5, "temperature": 38, "health": 99},
+    {"name": "Heat Exchanger E1", "machineId": "E1", "status": "running", "pressure": 75, "vibration": 0.3, "temperature": 76, "health": 97},
+    {"name": "Pump P-202", "machineId": "P-202", "status": "fault", "pressure": 22, "vibration": 4.1, "temperature": 88, "health": 41},
 ]
 
 def fetch_real_machines(auth_data):
@@ -68,7 +68,14 @@ def fetch_real_alerts(auth_data):
         pass
     return []
 
-def generate_sensor_data():
+def generate_sensor_data(force_critical=False):
+    if force_critical:
+        return {
+            "timestamp": datetime.now(),
+            "temperature": random.uniform(135, 145),
+            "pressure": random.uniform(25, 50),
+            "rpm": random.uniform(2100, 2400)
+        }
     temp = random.uniform(80, 120)
     pressure = random.uniform(50, 150)
     rpm = random.uniform(1000, 2000)
@@ -471,6 +478,20 @@ app.index_string = '''
       margin-left: 4px;
     }
     .supp-btn:hover { background: #26C6DA; color: #09090b; }
+
+    /* ── Toast Notifications ────────────────────────────────────── */
+    .hmi-toast {
+        background: #161B22; border: 1px solid #EF5350;
+        border-left: 4px solid #EF5350; border-radius: 4px;
+        padding: 12px 16px; color: #FFCDD2; font-size: 12px;
+        font-family: Inter, sans-serif;
+        animation: toastIn 0.3s ease, toastOut 0.3s ease 4.7s forwards;
+    }
+    @keyframes toastIn  { from {opacity:0;transform:translateX(20px)} to {opacity:1;transform:translateX(0)} }
+    @keyframes toastOut { from {opacity:1} to {opacity:0;height:0;padding:0;margin:0} }
+    .hmi-toast-warn {
+        border-color: #FFB300; border-left-color: #FFB300; color: #FFE082;
+    }
   </style>
 </head>
 <body>
@@ -526,6 +547,15 @@ def make_theme_toggle():
         **{"data-theme-toggle": "1"}
     )
 
+def make_demo_mode_btn(role_suffix):
+    return html.Button("\u2b21  DEMO MODE", id=f"demo-mode-btn-{role_suffix}", n_clicks=0,
+        style={"width": "100%", "background": "transparent",
+               "border": "1px solid #26C6DA", "borderRadius": "4px",
+               "color": "#26C6DA", "fontSize": "10px", "fontWeight": "700",
+               "letterSpacing": "0.1em", "padding": "8px 12px",
+               "cursor": "pointer", "marginBottom": "4px",
+               "fontFamily": "Inter, sans-serif", "transition": "all 0.18s ease"})
+
 def make_logout_btn():
     return html.A(
         html.Button("⬡  LOGOUT", style={
@@ -573,6 +603,7 @@ operator_sidebar = html.Div([
     html.Hr(),
     make_theme_toggle(),
     html.Hr(),
+    make_demo_mode_btn("op"),
     make_logout_btn(),
 ], style=SIDEBAR_STYLE)
 
@@ -600,6 +631,7 @@ engineer_sidebar = html.Div([
     html.Hr(),
     make_theme_toggle(),
     html.Hr(),
+    make_demo_mode_btn("eng"),
     make_logout_btn(),
 ], style=SIDEBAR_STYLE)
 
@@ -627,6 +659,7 @@ manager_sidebar = html.Div([
     html.Hr(),
     make_theme_toggle(),
     html.Hr(),
+    make_demo_mode_btn("mgr"),
     make_logout_btn(),
 ], style=SIDEBAR_STYLE)
 
@@ -742,7 +775,7 @@ signup_page = html.Div([
     html.Div(className="login-bg-glow-2"),
     html.Div([
         html.Div("NEXUS IQ",                          className="login-logo-mark"),
-        html.Div("Industrial Intelligence Platform",  className="logo-sub"),
+        html.Div("Industrial Intelligence Platform",  className="login-logo-sub"),
     ], className="login-logo"),
     html.Div("Create Account",              className="login-title"),
     html.Div("Register a new account",      className="login-subtitle"),
@@ -794,10 +827,19 @@ app.layout = html.Div([
     dcc.Store(id="selected-role-store", data="operator"),
     # ── NEW: Stores for operator page state ──
     dcc.Store(id="trend-range-store", data="1H"),          # active time range
+    dcc.Store(id="equipment-live-store"),
     dcc.Store(id="alarm-ack-store",   data=None),
     dcc.Store(id="report-gen-store",  data={"last": None, "count": 47}),
     dcc.Store(id="settings-store",    data={"refresh": 2, "ai": True, "notifications": True, "export_fmt": "CSV", "temp_warn": 110, "temp_crit": 130, "pres_warn": 80, "pres_crit": 60, "rpm_warn": 1700, "rpm_crit": 2000}, storage_type="local"),
+    dcc.Store(id="last-toast-store",  data=None),
+    dcc.Store(id="demo-mode-store",   data=False),
+    dcc.Store(id="uptime-store",      data={"start": datetime.now().isoformat()}),
     html.Div(id="app-root"),
+    html.Div(id="toast-container", style={
+        "position": "fixed", "bottom": "24px", "right": "280px",
+        "zIndex": "9999", "display": "flex", "flexDirection": "column",
+        "gap": "8px", "width": "320px"
+    }),
 ], style={"backgroundColor": "var(--bg-primary)"})
 
 
@@ -805,11 +847,12 @@ app.layout = html.Div([
 @app.callback(
     Output("latest-data-store", "data"),
     Input("interval-component", "n_intervals"),
-    State("auth-store", "data")
+    State("auth-store", "data"),
+    State("demo-mode-store", "data")
 )
-def update_global_data(n, auth_data):
+def update_global_data(n, auth_data, demo_mode):
     # Try backend sensor if authenticated with real token
-    if auth_data and auth_data.get("token") and auth_data.get("token") != "demo":
+    if not demo_mode and auth_data and auth_data.get("token") and auth_data.get("token") != "demo":
         try:
             r = requests.get(
                 "http://localhost:8000/api/sensor/live",
@@ -833,8 +876,8 @@ def update_global_data(n, auth_data):
         except Exception:
             pass
 
-    # Fallback: simulated sensor data
-    new_data = generate_sensor_data()
+    # Fallback: simulated sensor data (force critical if demo mode)
+    new_data = generate_sensor_data(force_critical=bool(demo_mode))
     sensor_history.append(new_data)
     data_dict = new_data.copy()
     data_dict["timestamp"] = data_dict["timestamp"].isoformat()
@@ -1064,9 +1107,10 @@ def update_trend_range(b1, b6, b24, b7):
     Input({"type": "alarm-row-supp", "index": ALL}, "n_clicks"),
     State("alarm-ack-store", "data"),
     State("latest-data-store", "data"),
+    State("auth-store", "data"),
     prevent_initial_call=True
 )
-def handle_alarm_actions(ack_clicks, supp_clicks, row_ack, row_supp, store, live_data):
+def handle_alarm_actions(ack_clicks, supp_clicks, row_ack, row_supp, store, live_data, auth_data):
     ctx = dash.callback_context
     if not ctx.triggered or not live_data:
         raise dash.exceptions.PreventUpdate
@@ -1076,6 +1120,16 @@ def handle_alarm_actions(ack_clicks, supp_clicks, row_ack, row_supp, store, live
     n_warning  = sum(1 for l, _ in alerts_raw if l == "WARNING")
     total = n_critical + n_warning
     store = store or {"unack": 0, "ack": 0, "supp": 0}
+
+    is_suppress = "alarm-supp-btn" in prop_id or "alarm-row-supp" in prop_id
+    if is_suppress:
+        if auth_data and auth_data.get("token") != "demo":
+            try:
+                requests.post("http://localhost:8000/api/data/alerts/ingest",
+                    json={"level":"SUPPRESSED","message":"Operator suppressed alarm","source":"operator"},
+                    timeout=1)
+            except: pass
+
     if "alarm-ack-all-btn" in prop_id:
         return {"unack": 0, "ack": store.get("ack", 0) + total, "supp": store.get("supp", 0), "total": total}
     elif "alarm-supp-btn" in prop_id and "index" not in prop_id:
@@ -1314,10 +1368,22 @@ def render_operator_overview():
     return html.Div([
         html.H3("Overview Dashboard"),
         dbc.Row([
-            dbc.Col(stat_card("System Uptime",    "23d 14h 32m", "Since last restart",         SUCCESS_COLOR), width=3),
+            dbc.Col(dbc.Card(dbc.CardBody([
+                html.P("System Uptime", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
+                                               "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
+                html.H3("0d 0h 0m", id="uptime-display", style={"color": SUCCESS_COLOR, "fontWeight": "700", "fontSize": "24px",
+                                                                 "letterSpacing": "-0.02em", "marginBottom": "4px"}),
+                html.P("Since last restart", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
+            ]), style=cs(), className="metric-card"), width=3),
             dbc.Col(stat_card("Active Alarms",    "2 CRITICAL",  "3 warnings pending",          CRITICAL_COLOR), width=3),
             dbc.Col(stat_card("Data Rate",        "1.24k pts/s", "All sensors reporting",       ACCENT_COLOR), width=3),
-            dbc.Col(stat_card("AI Filter Rate",   "78%",         "Noise suppressed this shift", INFO_COLOR), width=3),
+            dbc.Col(dbc.Card(dbc.CardBody([
+                html.P("AI Filter Rate", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
+                                                "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
+                html.H3("78%", id="ai-filter-display", style={"color": INFO_COLOR, "fontWeight": "700", "fontSize": "24px",
+                                                               "letterSpacing": "-0.02em", "marginBottom": "4px"}),
+                html.P("Noise suppressed this shift", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
+            ]), style=cs(), className="metric-card"), width=3),
         ], className="mb-3"),
         html.Div(id="overview-metrics-container"),
         html.Hr(),
@@ -1614,23 +1680,6 @@ def render_events():
 
 
 def render_equipment(auth_data):
-    real_machines = fetch_real_machines(auth_data)
-    equipment_data = []
-    for m in real_machines:
-        color = SUCCESS_COLOR if m["status"] == "running" else CRITICAL_COLOR if m["status"] == "fault" else WARNING_COLOR
-        equipment_data.append((m["name"], m["machineId"], m["status"].title(), color,
-                                f"{m['pressure']} PSI", f"{m['vibration']} mm/s", f"{m['temperature']}°C", "Review", "100%"))
-    if not equipment_data:
-        demo = [
-            ("Reactor R-401",   "R-401", "Running",  SUCCESS_COLOR,  "90 PSI",  "1.2 mm/s", "112°C", "Review",   "94%"),
-            ("Feed Pump P-101", "P-101", "Running",  SUCCESS_COLOR,  "85 PSI",  "0.8 mm/s", "42°C",  "2025-12",  "98%"),
-            ("Compressor K1",   "K1",    "Standby",  WARNING_COLOR,  "—",       "—",        "—",     "2025-10",  "85%"),
-            ("Separator S-101", "S-101", "Running",  SUCCESS_COLOR,  "55 PSI",  "0.5 mm/s", "38°C",  "2026-01",  "99%"),
-            ("Heat Exchanger E1","E1",   "Running",  SUCCESS_COLOR,  "75 PSI",  "0.3 mm/s", "76°C",  "2026-03",  "97%"),
-            ("Pump P-202",      "P-202", "Fault",    CRITICAL_COLOR, "22 PSI",  "4.1 mm/s", "88°C",  "OVERDUE",  "41%"),
-        ]
-        equipment_data = demo
-
     return html.Div([
         html.H3("Equipment Status"),
         dbc.Row([
@@ -1638,7 +1687,7 @@ def render_equipment(auth_data):
             dbc.Col(dbc.Card(dbc.CardBody([
                 html.P("Running", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
                                          "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
-                html.H3(str(sum(1 for e in equipment_data if e[2] == "Running")),
+                html.H3("0", id="equip-running-count",
                         style={"color": SUCCESS_COLOR, "fontWeight": "700", "fontSize": "24px",
                                "letterSpacing": "-0.02em", "marginBottom": "4px"}),
                 html.P("Actively operating", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
@@ -1646,7 +1695,7 @@ def render_equipment(auth_data):
             dbc.Col(dbc.Card(dbc.CardBody([
                 html.P("Standby / Idle", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
                                                 "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
-                html.H3(str(sum(1 for e in equipment_data if e[2] == "Standby")),
+                html.H3("0", id="equip-standby-count",
                         style={"color": WARNING_COLOR, "fontWeight": "700", "fontSize": "24px",
                                "letterSpacing": "-0.02em", "marginBottom": "4px"}),
                 html.P("Ready to start", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
@@ -1654,7 +1703,7 @@ def render_equipment(auth_data):
             dbc.Col(dbc.Card(dbc.CardBody([
                 html.P("Fault / Critical", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
                                                   "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
-                html.H3(str(sum(1 for e in equipment_data if e[2] == "Fault")),
+                html.H3("0", id="equip-fault-count",
                         style={"color": CRITICAL_COLOR, "fontWeight": "700", "fontSize": "24px",
                                "letterSpacing": "-0.02em", "marginBottom": "4px"}),
                 html.P("Requires attention", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
@@ -1662,36 +1711,7 @@ def render_equipment(auth_data):
         ], className="mb-3"),
         section_label("Equipment Register — All Units"),
         dbc.Card(dbc.CardBody([
-            html.Table([
-                html.Thead(html.Tr([
-                    html.Th(h, style={"color": ACCENT_COLOR, "fontSize": "9px", "fontWeight": "700",
-                                       "padding": "7px 12px", "letterSpacing": "0.1em",
-                                       "textTransform": "uppercase", "borderBottom": "1px solid var(--border-color)"})
-                    for h in ["Equipment", "Tag", "Status", "Flow / Output", "Speed", "Temp", "Next Maint.", "Health"]
-                ])),
-                html.Tbody([
-                    html.Tr([
-                        html.Td(eq[0], style={"fontSize": "12px", "padding": "8px 12px", "fontWeight": "600", "color": "var(--text-primary)", "borderBottom": "1px solid var(--border-color)"}),
-                        html.Td(eq[1], style={"fontSize": "10px", "padding": "8px 12px", "fontFamily": "monospace", "color": "var(--text-dimmed)", "borderBottom": "1px solid var(--border-color)"}),
-                        html.Td(html.Span(f"● {eq[2]}", style={"fontSize": "11px", "fontWeight": "700", "color": eq[3]}), style={"padding": "8px 12px", "borderBottom": "1px solid var(--border-color)"}),
-                        *[html.Td(eq[i], style={"fontSize": "12px", "padding": "8px 12px",
-                                                 "color": CRITICAL_COLOR if eq[i] == "OVERDUE" else "var(--text-primary)",
-                                                 "fontWeight": "600" if eq[i] == "OVERDUE" else "400",
-                                                 "borderBottom": "1px solid var(--border-color)"}) for i in [4,5,6,7]],
-                        html.Td(
-                            html.Div([
-                                html.Div(style={"height": "4px", "borderRadius": "2px",
-                                                "width": eq[8],
-                                                "background": CRITICAL_COLOR if int(eq[8].rstrip("%")) < 70
-                                                              else WARNING_COLOR if int(eq[8].rstrip("%")) < 85
-                                                              else SUCCESS_COLOR}),
-                                html.Span(eq[8], style={"fontSize": "10px", "color": "var(--text-muted)", "marginTop": "3px", "display": "block"})
-                            ], style={"width": "70px"}),
-                            style={"padding": "8px 12px", "borderBottom": "1px solid var(--border-color)"}
-                        ),
-                    ]) for eq in equipment_data
-                ])
-            ], style={"width": "100%", "borderCollapse": "collapse"})
+            html.Div(id="equipment-table-container")
         ]), style=cs()),
     ])
 
@@ -2745,6 +2765,7 @@ def render_manager_budget():
     Output("overview-trend-graph",       "figure"),
     Output("overview-metrics-container", "children"),
     Output("overview-alerts-container",  "children"),
+    Output("ai-filter-display",         "children"),
     Input("latest-data-store", "data"),
     State("settings-store",    "data"),
 )
@@ -2789,7 +2810,13 @@ def update_overview(data, settings):
         color = {"CRITICAL": "danger", "WARNING": "warning", "INFO": "info"}.get(level, "info")
         alert_divs.append(dbc.Alert(msg, color=color, className="mb-2"))
 
-    return fig, metrics, alert_divs
+    # AI Filter Rate: derive from recent anomaly ratio
+    recent = list(sensor_history)[-50:]
+    anomaly_count = sum(1 for d in recent if d["temperature"] > 110 or d["pressure"] < 80)
+    filter_pct = 100 - int((anomaly_count / max(len(recent), 1)) * 100)
+    ai_filter_str = f"{filter_pct}%"
+
+    return fig, metrics, alert_divs, ai_filter_str
 
 
 @app.callback(
@@ -2865,14 +2892,20 @@ def update_trends(data, time_range):
 
 @app.callback(
     Output("full-alarms-container", "children"),
+    Output("alarm-unack-count", "children", allow_duplicate=True),
+    Output("alarm-ack-count",   "children", allow_duplicate=True),
+    Output("alarm-supp-count",  "children", allow_duplicate=True),
     Input("latest-data-store",  "data"),
+    Input("alarm-ack-store", "data"),
     State("settings-store",     "data"),
+    prevent_initial_call=True
 )
-def update_full_alarms(data, settings):
+def update_full_alarms(data, ack_store, settings):
     if not data:
         raise dash.exceptions.PreventUpdate
 
     alerts_raw, _ = analyze_data(data, settings)
+    total_active = sum(1 for a in alerts_raw if a[0] in ["CRITICAL", "WARNING"])
 
     alert_divs = []
     for i, alert_tuple in enumerate(alerts_raw):
@@ -2890,7 +2923,12 @@ def update_full_alarms(data, settings):
                       "gap": "8px", "flexWrap": "wrap"})
         )
 
-    return alert_divs
+    unack = ack_store.get("unack", total_active) if ack_store else total_active
+    ack   = ack_store.get("ack", 0) if ack_store else 0
+    supp  = ack_store.get("supp", 0) if ack_store else 0
+    unack_str = "0 ACTIVE" if unack == 0 else f"{unack} ACTIVE"
+
+    return alert_divs, unack_str, str(ack), str(supp)
 
 @app.callback(
     Output("ai-insights-container", "children"),
@@ -3096,6 +3134,172 @@ def poll_alarm_stats(n, auth_data):
     except Exception:
         pass
     raise dash.exceptions.PreventUpdate
+
+@app.callback(
+    Output("equipment-live-store", "data"),
+    Input("interval-component", "n_intervals"),
+    State("auth-store", "data")
+)
+def poll_equipment(n, auth_data):
+    if not n or n % 5 != 0:
+        raise dash.exceptions.PreventUpdate
+    return fetch_real_machines(auth_data)
+
+@app.callback(
+    Output("equipment-table-container", "children"),
+    Output("equip-running-count", "children"),
+    Output("equip-standby-count", "children"),
+    Output("equip-fault-count", "children"),
+    Input("equipment-live-store", "data")
+)
+def update_equipment_table(machines):
+    if not machines:
+        raise dash.exceptions.PreventUpdate
+    
+    equipment_data = []
+    for m in machines:
+        color = SUCCESS_COLOR if m["status"] == "running" else CRITICAL_COLOR if m["status"] == "fault" else WARNING_COLOR
+        equipment_data.append((m["name"], m["machineId"], m["status"].title(), color,
+                                f"{m['pressure']} PSI", f"{m['vibration']} mm/s", f"{m['temperature']}°C", "Review", f"{m.get('health', 100)}%"))
+
+    if not equipment_data:
+        demo = [
+            ("Reactor R-401",   "R-401", "Running",  SUCCESS_COLOR,  "90 PSI",  "1.2 mm/s", "112°C", "Review",   "94%"),
+            ("Feed Pump P-101", "P-101", "Running",  SUCCESS_COLOR,  "85 PSI",  "0.8 mm/s", "42°C",  "2025-12",  "98%"),
+            ("Compressor K1",   "K1",    "Standby",  WARNING_COLOR,  "—",       "—",        "—",     "2025-10",  "85%"),
+            ("Separator S-101", "S-101", "Running",  SUCCESS_COLOR,  "55 PSI",  "0.5 mm/s", "38°C",  "2026-01",  "99%"),
+            ("Heat Exchanger E1","E1",   "Running",  SUCCESS_COLOR,  "75 PSI",  "0.3 mm/s", "76°C",  "2026-03",  "97%"),
+            ("Pump P-202",      "P-202", "Fault",    CRITICAL_COLOR, "22 PSI",  "4.1 mm/s", "88°C",  "OVERDUE",  "41%"),
+        ]
+        equipment_data = demo
+
+    table = html.Table([
+        html.Thead(html.Tr([
+            html.Th(h, style={"color": ACCENT_COLOR, "fontSize": "9px", "fontWeight": "700",
+                               "padding": "7px 12px", "letterSpacing": "0.1em",
+                               "textTransform": "uppercase", "borderBottom": "1px solid var(--border-color)"})
+            for h in ["Equipment", "Tag", "Status", "Flow / Output", "Speed", "Temp", "Next Maint.", "Health"]
+        ])),
+        html.Tbody([
+            html.Tr([
+                html.Td(eq[0], style={"fontSize": "12px", "padding": "8px 12px", "fontWeight": "600", "color": "var(--text-primary)", "borderBottom": "1px solid var(--border-color)"}),
+                html.Td(eq[1], style={"fontSize": "10px", "padding": "8px 12px", "fontFamily": "monospace", "color": "var(--text-dimmed)", "borderBottom": "1px solid var(--border-color)"}),
+                html.Td(html.Span(f"● {eq[2]}", style={"fontSize": "11px", "fontWeight": "700", "color": eq[3]}), style={"padding": "8px 12px", "borderBottom": "1px solid var(--border-color)"}),
+                *[html.Td(eq[i], style={"fontSize": "12px", "padding": "8px 12px",
+                                         "color": CRITICAL_COLOR if eq[i] == "OVERDUE" else "var(--text-primary)",
+                                         "fontWeight": "600" if eq[i] == "OVERDUE" else "400",
+                                         "borderBottom": "1px solid var(--border-color)"}) for i in [4,5,6,7]],
+                html.Td(
+                    html.Div([
+                        html.Div(style={"height": "4px", "borderRadius": "2px",
+                                        "width": f"{(lambda s: (lambda v: v if v > 0 else 0)((lambda h: int(h.rstrip('%')) if h not in ['—','N/A',''] else 0)(s)))(str(eq[8]))}%",
+                                        "background": (lambda s: (lambda pct: CRITICAL_COLOR if pct < 70 else WARNING_COLOR if pct < 85 else SUCCESS_COLOR)((lambda h: int(h.rstrip('%')) if h not in ['—','N/A',''] else 0)(s)))(str(eq[8]))}),
+                        html.Span("N/A" if str(eq[8]) in ["—", ""] else eq[8], style={"fontSize": "10px", "color": "var(--text-muted)", "marginTop": "3px", "display": "block"})
+                    ], style={"width": "70px"}),
+                    style={"padding": "8px 12px", "borderBottom": "1px solid var(--border-color)"}
+                ),
+            ]) for eq in equipment_data
+        ])
+    ], style={"width": "100%", "borderCollapse": "collapse"})
+
+    run = str(sum(1 for e in equipment_data if e[2] == "Running"))
+    stb = str(sum(1 for e in equipment_data if e[2] == "Standby"))
+    flt = str(sum(1 for e in equipment_data if e[2] == "Fault"))
+    
+    return table, run, stb, flt
+
+@app.callback(
+    Output("toast-container", "children"),
+    Output("last-toast-store", "data"),
+    Input("latest-data-store", "data"),
+    State("settings-store", "data"),
+    State("last-toast-store", "data"),
+    prevent_initial_call=True
+)
+def update_toast_notifications(data, settings, last_toast):
+    if not data:
+        raise dash.exceptions.PreventUpdate
+
+    alerts_raw, _ = analyze_data(data, settings)
+
+    # Collect CRITICAL first, then WARNING
+    critical_msgs = [msg for level, msg in alerts_raw if level == "CRITICAL"]
+    warning_msgs  = [msg for level, msg in alerts_raw if level == "WARNING"]
+
+    # Build signature for debounce
+    current_sig = "|".join(critical_msgs + warning_msgs)
+    if last_toast and last_toast.get("sig") == current_sig:
+        raise dash.exceptions.PreventUpdate
+
+    toasts = []
+    for msg in critical_msgs:
+        toasts.append(
+            html.Div([
+                html.Span("\u26a0 CRITICAL", style={"fontWeight": "700", "color": "#EF5350", "fontSize": "9px",
+                                                     "letterSpacing": "0.08em", "textTransform": "uppercase"}),
+                html.P(msg, style={"marginBottom": 0, "marginTop": "4px"})
+            ], className="hmi-toast")
+        )
+    for msg in warning_msgs:
+        toasts.append(
+            html.Div([
+                html.Span("\u26a0 WARNING", style={"fontWeight": "700", "color": "#FFB300", "fontSize": "9px",
+                                                    "letterSpacing": "0.08em", "textTransform": "uppercase"}),
+                html.P(msg, style={"marginBottom": 0, "marginTop": "4px"})
+            ], className="hmi-toast hmi-toast-warn")
+        )
+
+    return toasts[:3], {"sig": current_sig}
+
+
+# ── DEMO MODE TOGGLE ─────────────────────────────────────────────────────────
+# Only one sidebar renders at a time — per-role IDs avoid duplicates.
+@app.callback(
+    Output("demo-mode-store", "data"),
+    Input("demo-mode-btn-op",  "n_clicks"),
+    Input("demo-mode-btn-eng", "n_clicks"),
+    Input("demo-mode-btn-mgr", "n_clicks"),
+    State("demo-mode-store", "data"),
+    prevent_initial_call=True
+)
+def toggle_demo_mode(op_clicks, eng_clicks, mgr_clicks, current):
+    return not current
+
+app.clientside_callback(
+    """
+    function(active) {
+        var ids = ['demo-mode-btn-op', 'demo-mode-btn-eng', 'demo-mode-btn-mgr'];
+        var label = active ? '\u25a0  DEMO ACTIVE' : '\u2b21  DEMO MODE';
+        var bcolor = active ? '#EF5350' : '#26C6DA';
+        ids.forEach(function(id) {
+            var btn = document.getElementById(id);
+            if (btn) { btn.style.borderColor = bcolor; btn.style.color = bcolor; btn.textContent = label; }
+        });
+        return [label, label, label];
+    }
+    """,
+    Output("demo-mode-btn-op",  "children"),
+    Output("demo-mode-btn-eng", "children"),
+    Output("demo-mode-btn-mgr", "children"),
+    Input("demo-mode-store", "data")
+)
+
+# ── UPTIME DISPLAY ───────────────────────────────────────────────────────────
+@app.callback(
+    Output("uptime-display", "children"),
+    Input("interval-component", "n_intervals"),
+    State("uptime-store", "data"),
+)
+def update_uptime_display(n, store):
+    if not store:
+        raise dash.exceptions.PreventUpdate
+    start = datetime.fromisoformat(store["start"])
+    delta = datetime.now() - start
+    total_secs = int(delta.total_seconds())
+    days = total_secs // 86400
+    hours = (total_secs % 86400) // 3600
+    mins = (total_secs % 3600) // 60
+    return f"{days}d {hours}h {mins}m"
 
 if __name__ == "__main__":
     import os

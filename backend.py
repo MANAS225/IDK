@@ -10,7 +10,16 @@ from pydantic import BaseModel
 from typing import Optional
 from contextlib import closing
 
-app = FastAPI(title="NEXUS IQ HMI Backend")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    init_db()
+    t = threading.Thread(target=_alarm_generator_loop, daemon=True)
+    t.start()
+    yield
+
+app = FastAPI(title="NEXUS IQ HMI Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -153,8 +162,8 @@ def _alarm_generator_loop():
                 for level, message, source in checks:
                     # Deduplicate: skip if identical unacknowledged alert exists in last 60s
                     c.execute(
-                        "SELECT id FROM alerts WHERE level = ? AND message = ? AND acknowledged = 0 AND created_at > ?",
-                        (level, message, cutoff)
+                        "SELECT id FROM alerts WHERE level=? AND source=? AND acknowledged=0 AND created_at>?",
+                        (level, source, cutoff)
                     )
                     if c.fetchone() is None:
                         c.execute(
@@ -165,13 +174,6 @@ def _alarm_generator_loop():
                 conn.commit()
         except Exception as e:
             print(f"Background Alarm Error: {e}")
-
-# Startup event
-@app.on_event("startup")
-def startup_event():
-    init_db()
-    t = threading.Thread(target=_alarm_generator_loop, daemon=True)
-    t.start()
 
 # Models
 class LoginReq(BaseModel):
@@ -187,6 +189,12 @@ class RegisterReq(BaseModel):
 class AckReq(BaseModel):
     alert_id: int
     acknowledged_by: str
+
+class MachineUpdateReq(BaseModel):
+    status: str
+    temperature: float
+    pressure: float
+    vibration: float
 
 class IngestReq(BaseModel):
     temperature: float
@@ -259,6 +267,17 @@ def get_machines(user: dict = Depends(get_current_user), conn: sqlite3.Connectio
     c.execute("SELECT * FROM machines")
     rows = c.fetchall()
     return [dict(r) for r in rows]
+
+@app.put("/api/data/machines/{machineId}")
+def update_machine(machineId: str, req: MachineUpdateReq, user: dict = Depends(get_current_user), conn: sqlite3.Connection = Depends(get_db)):
+    c = conn.cursor()
+    now = datetime.now().isoformat()
+    c.execute(
+        "UPDATE machines SET status = ?, temperature = ?, pressure = ?, vibration = ?, updated_at = ? WHERE machineId = ?",
+        (req.status, req.temperature, req.pressure, req.vibration, now, machineId)
+    )
+    conn.commit()
+    return {"message": "Machine updated", "updated_at": now}
 
 @app.get("/api/data/alerts")
 def get_alerts(user: dict = Depends(get_current_user), conn: sqlite3.Connection = Depends(get_db)):
