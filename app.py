@@ -588,7 +588,7 @@ engineer_sidebar = html.Div([
         dbc.NavLink("⬡  Maintenance",     href="/engineer/maintenance",    active="exact"),
         dbc.NavLink("⬡  Trends",          href="/engineer/trends",         active="exact"),
         dbc.NavLink("⬡  Reports",         href="/engineer/reports",        active="exact"),
-        dbc.NavLink("⬡  Settings",      href="/engineer/settings",       active="exact"),
+        dbc.NavLink("⬡  Settings",       href="/engineer/settings",       active="exact"),
     ], vertical=True, pills=True),
     html.Hr(),
     html.Div([
@@ -1485,7 +1485,7 @@ def render_alarms(auth_data=None):
                 html.P("Unacknowledged", style={"fontSize": "9px", "fontWeight": "700", "color": "var(--text-dimmed)",
                                                "textTransform": "uppercase", "letterSpacing": "0.12em", "marginBottom": "8px"}),
                 html.H3("0 ACTIVE", id="alarm-unack-count", style={"color": CRITICAL_COLOR, "fontWeight": "700",
-                                                            "fontSize": "24px", "letterSpacing": "-0.02em", "marginBottom": "4px"}),
+                                                                    "fontSize": "24px", "letterSpacing": "-0.02em", "marginBottom": "4px"}),
                 html.P("Pending review", style={"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": 0}),
             ]), style=cs(), className="metric-card"), width=3),
 
@@ -1751,8 +1751,8 @@ def render_ai_insights():
     insights = [
         ("TT-101 Temperature Drift", "PREDICTIVE",   "#FF7043", "Sensor TT-101 shows a gradual upward drift of 0.4°C/hour. Predicted to breach warning threshold in ~6.2 hours if current trend continues."),
         ("Pressure Anomaly P-202",   "ANOMALY",      CRITICAL_COLOR, "P-202 pressure fluctuations exhibit a periodicity of ~47 seconds — consistent with partial blockage in the upstream filter. Manual inspection recommended."),
-        ("Cooling Efficiency",        "OPTIMISATION", INFO_COLOR, "Cooling loop CL-1 operating at 94% efficiency. Reducing pump speed by 8% during off-peak hours could save ~12 kWh/day."),
-        ("RPM Stability",             "NORMAL",       SUCCESS_COLOR, "All rotating equipment RPM within tolerance for past 14 hours. No corrective action required."),
+        ("Cooling Efficiency",       "OPTIMISATION", INFO_COLOR, "Cooling loop CL-1 operating at 94% efficiency. Reducing pump speed by 8% during off-peak hours could save ~12 kWh/day."),
+        ("RPM Stability",            "NORMAL",       SUCCESS_COLOR, "All rotating equipment RPM within tolerance for past 14 hours. No corrective action required."),
     ]
     return html.Div([
         html.H3("AI Insights"),
@@ -2183,11 +2183,11 @@ def render_engineer_calibration():
     cal_items = [
         ("TT-101", "Temperature", "±0.2°C",  "2025-11-01", "2025-12-15", "Scheduled",  WARNING_COLOR),
         ("TT-102", "Temperature", "±0.2°C",  "2025-11-01", "2025-12-15", "Scheduled",  WARNING_COLOR),
-        ("PT-201", "Pressure",    "±0.5 PSI","2025-10-15", "2026-01-15", "OK",          SUCCESS_COLOR),
+        ("PT-201", "Pressure",    "±0.5 PSI","2025-10-15", "2026-01-15", "OK",         SUCCESS_COLOR),
         ("PT-202", "Pressure",    "±0.5 PSI","2025-10-15", "2025-12-01", "Overdue",    CRITICAL_COLOR),
-        ("FT-301", "Flow",        "±1.0%",   "2025-09-20", "2026-03-20", "OK",          SUCCESS_COLOR),
+        ("FT-301", "Flow",        "±1.0%",   "2025-09-20", "2026-03-20", "OK",         SUCCESS_COLOR),
         ("VT-401", "Vibration",   "±0.05 mm/s","2025-08-10","2025-11-10","Overdue",    CRITICAL_COLOR),
-        ("ST-501", "Speed",       "±5 RPM",  "2025-11-05", "2026-05-05", "OK",          SUCCESS_COLOR),
+        ("ST-501", "Speed",       "±5 RPM",  "2025-11-05", "2026-05-05", "OK",         SUCCESS_COLOR),
     ]
     return html.Div([
         html.H3("Calibration Management"),
@@ -2256,10 +2256,10 @@ def render_engineer_signals():
     return html.Div([
         html.H3("Signal Library"),
         dbc.Row([
-            dbc.Col(stat_card("Total Signals",    "142", "In database",           ACCENT_COLOR),   width=3),
-            dbc.Col(stat_card("Analog Inputs",    "87",  "AI channels",           INFO_COLOR),     width=3),
-            dbc.Col(stat_card("Digital I/O",      "48",  "DI / DO channels",      SUCCESS_COLOR),  width=3),
-            dbc.Col(stat_card("Analog Outputs",   "7",   "AO channels",           WARNING_COLOR),  width=3),
+            dbc.Col(stat_card("Total Signals",    "142", "In database",            ACCENT_COLOR),   width=3),
+            dbc.Col(stat_card("Analog Inputs",    "87",  "AI channels",            INFO_COLOR),     width=3),
+            dbc.Col(stat_card("Digital I/O",      "48",  "DI / DO channels",       SUCCESS_COLOR),  width=3),
+            dbc.Col(stat_card("Analog Outputs",   "7",   "AO channels",            WARNING_COLOR),  width=3),
         ], className="mb-3"),
         
         dbc.Row([
@@ -2646,8 +2646,8 @@ def render_manager_compliance():
         ("Pressure Vessel Inspection","ASME / PED 2014",     "Due 15 Jan",    WARNING_COLOR,  "2026-01-15", "Reactor R-401 — schedule inspector"),
         ("Electrical Safety",         "NFPA 70E",            "Compliant",     SUCCESS_COLOR,  "2026-06-01", "Arc flash study current"),
         ("Process Safety Mgmt",       "OSHA 29 CFR 1910.119","Compliant",     SUCCESS_COLOR,  "2026-03-01", "PSM review scheduled Q1 2026"),
-        ("ISO 14001 Environmental",   "ISO 14001:2015",       "Certified",     SUCCESS_COLOR,  "2026-09-01", "Certificate expires Sep 2026"),
-        ("ISO 45001 Safety",          "ISO 45001:2018",       "Under Review",  WARNING_COLOR,  "2025-12-20", "Annual surveillance audit 20 Dec"),
+        ("ISO 14001 Environmental",   "ISO 14001:2015",      "Certified",     SUCCESS_COLOR,  "2026-09-01", "Certificate expires Sep 2026"),
+        ("ISO 45001 Safety",          "ISO 45001:2018",      "Under Review",  WARNING_COLOR,  "2025-12-20", "Annual surveillance audit 20 Dec"),
     ]
     return html.Div([
         html.H3("Compliance Tracking"),
@@ -2865,31 +2865,14 @@ def update_trends(data, time_range):
 
 @app.callback(
     Output("full-alarms-container", "children"),
-    Output("alarm-unack-count",     "children"),
-    Output("alarm-ack-count",       "children"),
-    Output("alarm-supp-count",      "children"),
     Input("latest-data-store",  "data"),
-    Input("alarm-ack-store",    "data"),
     State("settings-store",     "data"),
 )
-def update_full_alarms(data, ack_store, settings):
+def update_full_alarms(data, settings):
     if not data:
         raise dash.exceptions.PreventUpdate
 
     alerts_raw, _ = analyze_data(data, settings)
-
-    # Count live alarm levels
-    n_critical = sum(1 for l, _ in alerts_raw if l == "CRITICAL")
-    n_warning  = sum(1 for l, _ in alerts_raw if l == "WARNING")
-    total_active = n_critical + n_warning
-
-    if ack_store is None:
-        unack = total_active
-        ack, supp = 0, 0
-    else:
-        unack = ack_store.get("unack", total_active)
-        ack   = ack_store.get("ack", 0)
-        supp  = ack_store.get("supp", 0)
 
     alert_divs = []
     for i, alert_tuple in enumerate(alerts_raw):
@@ -2907,11 +2890,7 @@ def update_full_alarms(data, ack_store, settings):
                       "gap": "8px", "flexWrap": "wrap"})
         )
 
-    unack_str = "0 ACTIVE" if unack == 0 else f"{unack} ACTIVE"
-    ack_str   = str(ack)
-    supp_str  = str(supp)
-
-    return alert_divs, unack_str, ack_str, supp_str
+    return alert_divs
 
 @app.callback(
     Output("ai-insights-container", "children"),
