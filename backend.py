@@ -338,6 +338,10 @@ def get_alert_stats(user: dict = Depends(get_current_user), conn: sqlite3.Connec
     c.execute("SELECT COUNT(*) FROM alerts WHERE acknowledged = 1 AND ack_time > ?", (cutoff_24h,))
     cleared_today = c.fetchone()[0]
 
+@app.get("/")
+def health_check():
+    return {"status": "ok", "service": "NEXUS IQ Backend"}
+
     return {
         "unacknowledged": unacknowledged,
         "acknowledged": acknowledged,
