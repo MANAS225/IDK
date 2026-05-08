@@ -2281,47 +2281,78 @@ def render_manager_budget():
                 dbc.Card(dbc.CardBody([
                     html.Div([
                         html.Div([
-                            html.Span(cat,style={"fontSize":"11px","color":"var(--text-muted)","width":"120px","display":"inline-block","fontWeight":"600"}),
-                            html.Div(style={"display":"inline-block","height":"7px","width":f"{pct}%",
-                                           "background":SUCCESS_COLOR if pct<=90 else WARNING_COLOR if pct<=100 else CRITICAL_COLOR,
-                                           "borderRadius":"2px","verticalAlign":"middle"}),
-                            html.Span(f"  ${spent}k / ${budget}k",style={"fontSize":"11px","color":"var(--text-primary)","marginLeft":"8px"}),
-                        ],style={"marginBottom":"14px"})
-                        for cat,spent,budget,pct in [
-                            ("Maintenance",  42,50, 84),
-                            ("Energy",       61,65, 94),
-                            ("Labour",       88,90, 98),
-                            ("Raw Materials",71,80, 89),
-                            ("Consumables",  14,18, 78),
-                            ("Overheads",    8, 7,  114),
+                            # Label column — fixed width
+                            html.Span(cat, style={
+                                "fontSize": "11px", "color": "var(--text-muted)",
+                                "fontWeight": "600", "width": "110px",
+                                "flexShrink": "0", "display": "inline-block"
+                            }),
+                            # Bar track — fills remaining space
+                            html.Div(
+                                html.Div(style={
+                                    "height": "8px",
+                                    "width": f"{pct}%",
+                                    "background": SUCCESS_COLOR if pct <= 90 else WARNING_COLOR if pct <= 100 else CRITICAL_COLOR,
+                                    "borderRadius": "4px",
+                                    "transition": "width 0.3s ease",
+                                }),
+                                style={
+                                    "flex": "1",
+                                    "backgroundColor": "var(--bg-surface)",
+                                    "borderRadius": "4px",
+                                    "height": "8px",
+                                    "alignSelf": "center",
+                                    "margin": "0 12px",
+                                }
+                            ),
+                            # Value — fixed width, right-aligned
+                            html.Span(f"${spent}k / ${budget}k", style={
+                                "fontSize": "11px", "color": "var(--text-primary)",
+                                "fontWeight": "600", "whiteSpace": "nowrap",
+                                "flexShrink": "0", "width": "100px",
+                                "textAlign": "right",
+                            }),
+                        ], style={
+                            "display": "flex",
+                            "alignItems": "center",
+                            "marginBottom": "18px",
+                        })
+                        for cat, spent, budget, pct in [
+                            ("Maintenance",   42, 50,  84),
+                            ("Energy",        61, 65,  94),
+                            ("Labour",        88, 90,  98),
+                            ("Raw Materials", 71, 80,  89),
+                            ("Consumables",   14, 18,  78),
+                            ("Overheads",      8,  7, 114),
                         ]
-                    ])
-                ]),style=cs()),
-            ],width=7),
+                    ], style={"paddingTop": "4px"})
+                ]), style=cs()),
+            ], width=7),
             dbc.Col([
                 section_label("Cost Savings This Month"),
                 dbc.Card(dbc.CardBody([
                     html.Div([
                         html.Div([
-                            html.Span(item,style={"fontSize":"11px","color":"var(--text-primary)","flex":"1"}),
-                            html.Span(f"${saving}k",style={"fontSize":"12px","color":SUCCESS_COLOR,"fontWeight":"700"}),
-                        ],style={"display":"flex","justifyContent":"space-between","padding":"8px 0","borderBottom":"1px solid var(--border-color)"})
-                        for item,saving in [
-                            ("AI Alarm Noise Reduction","3.2"),
-                            ("Predictive Maintenance",  "8.5"),
-                            ("Energy Optimisation",     "4.1"),
+                            html.Span(item, style={"fontSize": "11px", "color": "var(--text-primary)", "flex": "1"}),
+                            html.Span(f"${saving}k", style={"fontSize": "12px", "color": SUCCESS_COLOR, "fontWeight": "700"}),
+                        ], style={"display": "flex", "justifyContent": "space-between",
+                                  "padding": "8px 0", "borderBottom": "1px solid var(--border-color)"})
+                        for item, saving in [
+                            ("AI Alarm Noise Reduction", "3.2"),
+                            ("Predictive Maintenance",   "8.5"),
+                            ("Energy Optimisation",      "4.1"),
                             ("Reduced Downtime (vs avg)","11.4"),
                         ]
                     ]),
                     html.Div([
-                        html.Span("Total Savings",style={"fontSize":"12px","color":"var(--text-primary)","fontWeight":"700","flex":"1"}),
-                        html.Span("$27.2k",style={"fontSize":"14px","color":ACCENT_COLOR,"fontWeight":"800"}),
-                    ],style={"display":"flex","justifyContent":"space-between","padding":"10px 0","marginTop":"4px"}),
-                ]),style=cs(ACCENT_COLOR)),
-            ],width=5),
+                        html.Span("Total Savings", style={"fontSize": "12px", "color": "var(--text-primary)", "fontWeight": "700", "flex": "1"}),
+                        html.Span("$27.2k", style={"fontSize": "14px", "color": ACCENT_COLOR, "fontWeight": "800"}),
+                    ], style={"display": "flex", "justifyContent": "space-between",
+                              "padding": "10px 0", "marginTop": "4px"}),
+                ]), style=cs(ACCENT_COLOR)),
+            ], width=5),
         ]),
     ])
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ── LIVE DATA CALLBACKS ──────────────────────────────────────────────────────
