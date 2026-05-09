@@ -98,6 +98,14 @@ def init_db():
             source TEXT,
             created_at TEXT
         )''')
+
+        c.execute('''CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            source TEXT,
+            event_type TEXT,
+            description TEXT
+        )''')
         
         # Seed Data
         c.execute('SELECT COUNT(*) FROM users')
@@ -206,6 +214,11 @@ class AlertIngestReq(BaseModel):
     level: str
     message: str
     source: str
+
+class EventIngestReq(BaseModel):
+    source: str
+    event_type: str
+    description: str
 
 def get_current_user(
     authorization: Optional[str] = Header(None),
@@ -338,9 +351,6 @@ def get_alert_stats(user: dict = Depends(get_current_user), conn: sqlite3.Connec
     c.execute("SELECT COUNT(*) FROM alerts WHERE acknowledged = 1 AND ack_time > ?", (cutoff_24h,))
     cleared_today = c.fetchone()[0]
 
-@app.get("/")
-def health_check():
-    return {"status": "ok", "service": "NEXUS IQ Backend"}
 
     return {
         "unacknowledged": unacknowledged,
@@ -348,6 +358,28 @@ def health_check():
         "suppressed": suppressed,
         "cleared_today": cleared_today
     }
+@app.get("/api/events")
+def get_events(limit: int = 50, user: dict = Depends(get_current_user), conn: sqlite3.Connection = Depends(get_db)):
+    c = conn.cursor()
+    c.execute("SELECT * FROM events ORDER BY timestamp DESC LIMIT ?", (limit,))
+    rows = c.fetchall()
+    return [dict(r) for r in rows]
+
+@app.post("/api/events/ingest", status_code=201)
+def ingest_event(req: EventIngestReq, conn: sqlite3.Connection = Depends(get_db)):
+    c = conn.cursor()
+    now = datetime.now().isoformat()
+    c.execute(
+        "INSERT INTO events (timestamp, source, event_type, description) VALUES (?, ?, ?, ?)",
+        (now, req.source, req.event_type, req.description)
+    )
+    conn.commit()
+    return {"id": c.lastrowid}
+
+@app.get("/")
+def health_check():
+    return {"status": "ok", "service": "NEXUS IQ Backend"}
+
 
 if __name__ == "__main__":
     import uvicorn
