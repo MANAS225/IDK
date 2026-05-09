@@ -1,4 +1,5 @@
 import dash
+app = dash.Dash(__name__)
 from dash import dcc, html, Input, Output, callback, State, ALL
 import dash_bootstrap_components as dbc
 import pandas as pd
@@ -3135,8 +3136,9 @@ def export_shift_handover(n_clicks, live_data):
         ),
         {"display": "block", "marginBottom": "12px"}
     )
-app = dash.Dash(__name__)
+
 server = app.server
+
 if __name__ == "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
