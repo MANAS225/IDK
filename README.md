@@ -38,15 +38,15 @@ Open [http://localhost:5000](http://localhost:5000) — login with `admin@hmi.co
 ## Architecture
 
 ```
-┌─────────────┐    HTTP/JSON     ┌──────────────┐    SQLite    ┌──────────┐
-│  Dash App   │ ◄──────────────► │  FastAPI API  │ ◄──────────► │  nexus.db │
-│  (port 5000)│                  │  (port 8000)  │              └──────────┘
+┌─────────────┐    HTTP/JSON     ┌──────────────┐    SQLite   ┌──────────┐
+│  Dash App   │ ◄──────────────► │  FastAPI API │ ◄──────────►│ nexus.db │
+│  (port 5000)│                  │  (port 8000) │             └──────────┘
 └─────────────┘                  └──────┬───────┘
                                         ▲
                                         │ POST /api/sensor/ingest
                                  ┌──────┴───────┐
-                                 │  sensor_sim   │
-                                 │  (PLC sim)    │
+                                 │  sensor_sim  │
+                                 │  (PLC sim)   │
                                  └──────────────┘
 ```
 
