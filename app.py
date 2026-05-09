@@ -3135,7 +3135,7 @@ def export_shift_handover(n_clicks, live_data):
         ),
         {"display": "block", "marginBottom": "12px"}
     )
-
+app = dash.Dash(__name__)
 server = app.server
 if __name__ == "__main__":
     import os
