@@ -1146,6 +1146,16 @@ def handle_alarm_actions(ack_clicks, supp_clicks, row_ack, row_supp, store, live
         all_ids = [str(i) for i in range(len(alerts_raw))]
         new_acked = list(set(acked_ids + all_ids))
         total_newly_acked = len([i for i in all_ids if i not in acked_ids])
+        # Log event to backend
+        try:
+            if auth_data and auth_data.get("token") != "demo":
+                requests.post(f"{BACKEND_URL}/api/events/ingest",
+                    json={"source": "operator",
+                          "event_type": "ACTION",
+                          "description": f"Alarm acknowledged — {total_newly_acked} alarm(s) ACK'd"},
+                    timeout=1)
+        except Exception:
+            pass
         return {
             "unack": 0,
             "ack":   store.get("ack", 0) + total_newly_acked,
@@ -1351,48 +1361,27 @@ def render_operator_overview():
 
 
 def render_process_map():
-    flow_steps = [
-        ("01", "Raw Material Inlet",   "Feed pump draws raw material at 2.4 m³/h",        SUCCESS_COLOR),
-        ("02", "Pre-Heat Exchanger",   "Fluid pre-heated from ambient to 75°C",            ACCENT_COLOR),
-        ("03", "Reactor Vessel R-401", "Primary reaction zone — temp 110–135°C, 90 PSI",   WARNING_COLOR),
-        ("04", "Cooling Loop CL-1",    "Post-reaction cooling to 40°C via chilled water",  INFO_COLOR),
-        ("05", "Separator S-101",      "Gas–liquid separation; gas vented to flare header",ACCENT_COLOR),
-        ("06", "Product Storage T-5",  "Final product stored in 50 kL buffer tank",        SUCCESS_COLOR),
-    ]
     pipe_rows = [
-        ("P-101", "Feed Line",      "2½″ CS", "2.4 m³/h", "85 PSI", "●  Active"),
-        ("P-202", "Reactor Inlet",  "2″ SS",  "1.8 m³/h", "90 PSI", "●  Active"),
-        ("P-303", "Cooling Return", "3″ CS",  "4.1 m³/h", "35 PSI", "●  Active"),
-        ("P-404", "Product Line",   "2″ CS",  "2.1 m³/h", "20 PSI", "●  Active"),
-        ("P-505", "Flare Header",   "4″ CS",  "0.3 m³/h", "5 PSI",  "●  Active"),
+        ("P-101", "Feed Line",      "2\u00bd\u2033 CS", "2.4 m\u00b3/h", "85 PSI", "\u25cf  Active"),
+        ("P-202", "Reactor Inlet",  "2\u2033 SS",  "1.8 m\u00b3/h", "90 PSI", "\u25cf  Active"),
+        ("P-303", "Cooling Return", "3\u2033 CS",  "4.1 m\u00b3/h", "35 PSI", "\u25cf  Active"),
+        ("P-404", "Product Line",   "2\u2033 CS",  "2.1 m\u00b3/h", "20 PSI", "\u25cf  Active"),
+        ("P-505", "Flare Header",   "4\u2033 CS",  "0.3 m\u00b3/h", "5 PSI",  "\u25cf  Active"),
     ]
     return html.Div([
         html.H3("Process Map"),
         dbc.Row([
             dbc.Col(stat_card("Active Streams", "5",     "All lines flowing",  SUCCESS_COLOR), width=3),
-            dbc.Col(stat_card("Total Flow",     "10.6 m³/h","Combined output", ACCENT_COLOR),  width=3),
-            dbc.Col(stat_card("Reactor Temp",   "112°C",  "Within target",     WARNING_COLOR), width=3),
+            dbc.Col(stat_card("Total Flow",     "10.6 m\u00b3/h","Combined output", ACCENT_COLOR),  width=3),
+            dbc.Col(stat_card("Reactor Temp",   "112\u00b0C",  "Within target",     WARNING_COLOR), width=3),
             dbc.Col(stat_card("System Pressure","90 PSI", "Reactor inlet",     INFO_COLOR),    width=3),
         ], className="mb-3"),
-        section_label("Process Flow"),
-        html.Div([
-            html.Div([
-                html.Div([
-                    html.Div([
-                        html.Span(step[0], style={"fontSize": "9px", "fontWeight": "700", "color": step[3],
-                                                   "letterSpacing": "0.1em", "marginBottom": "4px", "display": "block"}),
-                        html.Span(step[1], style={"fontSize": "13px", "fontWeight": "700", "color": "var(--text-primary)",
-                                                   "display": "block", "marginBottom": "4px"}),
-                        html.Span(step[2], style={"fontSize": "11px", "color": "var(--text-muted)", "lineHeight": "1.5"}),
-                    ], style={"padding": "16px", "flex": "1"}),
-                    html.Div(style={"width": "3px", "backgroundColor": step[3], "borderRadius": "2px",
-                                    "margin": "12px 0", "opacity": "0.6"}),
-                ], style={"display": "flex", "backgroundColor": "var(--bg-card)",
-                          "border": f"1px solid var(--border-color)", "borderLeft": f"3px solid {step[3]}",
-                          "borderRadius": "6px", "marginBottom": "8px", "transition": "all 0.2s ease"})
-                for step in flow_steps
-            ])
-        ], style={"marginBottom": "20px"}),
+        section_label("Reactor Line 4 \u2014 Live P&ID"),
+        dbc.Card(dbc.CardBody([
+            dcc.Graph(id="process-map-graph", config={"displayModeBar": False},
+                      style={"height": "420px"})
+        ]), style=cs()),
+        html.Div(style={"height": "16px"}),
         section_label("Piping & Instrumentation"),
         dbc.Card(dbc.CardBody([
             html.Table([
@@ -1500,18 +1489,6 @@ def render_alarms(auth_data):
 
 
 def render_events():
-    events = [
-        ("2025-12-01 08:14", "ALARM",  "PT-202 Low Pressure alarm activated — 22.1 PSI",            CRITICAL_COLOR),
-        ("2025-12-01 08:10", "ACTION", "Operator acknowledged vibration alarm on VT-401",            INFO_COLOR),
-        ("2025-12-01 07:55", "ALARM",  "VT-401 Vibration elevated — 4.1 mm/s",                      WARNING_COLOR),
-        ("2025-12-01 07:00", "INFO",   "Shift changeover — Day A commenced",                         SUCCESS_COLOR),
-        ("2025-11-30 22:11", "INFO",   "FT-301 flow interruption auto-recovered",                    SUCCESS_COLOR),
-        ("2025-11-30 20:00", "ACTION", "Operator P-202 pump inspection initiated",                   INFO_COLOR),
-        ("2025-11-30 18:45", "ALARM",  "High Temperature alarm — Reactor R-401 reached 131°C",      CRITICAL_COLOR),
-        ("2025-11-30 18:50", "ACTION", "Cooling loop CL-1 flow rate increased by operator",         INFO_COLOR),
-        ("2025-11-30 18:55", "INFO",   "Reactor R-401 temperature normalized — 112°C",              SUCCESS_COLOR),
-        ("2025-11-30 14:00", "INFO",   "Daily sensor calibration check completed — all OK",          SUCCESS_COLOR),
-    ]
     return html.Div([
         html.H3("Event Log"),
         dbc.Row([
@@ -1522,22 +1499,7 @@ def render_events():
         ], className="mb-3"),
         section_label("Event Timeline"),
         dbc.Card(dbc.CardBody([
-            html.Div([
-                html.Div([
-                    html.Div(style={"width": "3px", "backgroundColor": ev[3],
-                                    "borderRadius": "2px", "flexShrink": "0", "margin": "4px 16px 4px 4px"}),
-                    html.Div([
-                        html.Span(ev[0], style={"fontSize": "10px", "fontFamily": "monospace", "color": "var(--text-dimmed)", "marginRight": "10px"}),
-                        html.Span(ev[1], style={"fontSize": "9px", "fontWeight": "700", "padding": "1px 6px",
-                                                 "borderRadius": "2px", "backgroundColor": "var(--bg-surface)",
-                                                 "color": ev[3], "border": f"1px solid {ev[3]}",
-                                                 "letterSpacing": "0.06em", "marginRight": "10px"}),
-                        html.Span(ev[2], style={"fontSize": "12px", "color": "var(--text-primary)"}),
-                    ], style={"flex": "1", "padding": "6px 0"}),
-                ], style={"display": "flex", "alignItems": "flex-start",
-                          "padding": "8px 4px", "borderBottom": "1px solid var(--border-color)"})
-                for ev in events
-            ])
+            html.Div(id="events-log-container")
         ]), style=cs()),
     ])
 
@@ -2197,6 +2159,17 @@ def render_manager_shifts():
             dbc.Col(stat_card("Incidents",      "1",     "P-202 pump fault", CRITICAL_COLOR), width=3),
             dbc.Col(stat_card("Avg Alarm Rate", "2.4/h", "Last 7 shifts",    INFO_COLOR),     width=3),
         ], className="mb-3"),
+        html.Div([
+            html.Button("\u2b21  EXPORT HANDOVER REPORT",
+                id="shift-export-btn", n_clicks=0,
+                style={"background": "#00E676", "border": "none",
+                       "borderRadius": "4px", "color": "#09090b",
+                       "fontSize": "11px", "fontWeight": "700",
+                       "padding": "10px 24px", "cursor": "pointer",
+                       "letterSpacing": "0.08em", "textTransform": "uppercase",
+                       "fontFamily": "Inter, sans-serif", "marginBottom": "16px"}),
+            html.Div(id="shift-export-feedback", style={"display": "none", "marginBottom": "12px"}),
+        ]),
         section_label("Shift Handover Log"),
         dbc.Card(dbc.CardBody([
             html.Table([
@@ -2872,6 +2845,296 @@ def update_uptime_display(n, store):
     hours = (total_secs % 86400) // 3600
     mins  = (total_secs % 3600) // 60
     return f"{days}d {hours}h {mins}m"
+
+
+# ── EVENTS LOG POLLING ───────────────────────────────────────────────────────
+DEMO_EVENTS = [
+    ("2025-12-01 08:14", "ALARM",  "PT-202 Low Pressure alarm activated — 22.1 PSI",            CRITICAL_COLOR),
+    ("2025-12-01 08:10", "ACTION", "Operator acknowledged vibration alarm on VT-401",            INFO_COLOR),
+    ("2025-12-01 07:55", "ALARM",  "VT-401 Vibration elevated — 4.1 mm/s",                      WARNING_COLOR),
+    ("2025-12-01 07:00", "INFO",   "Shift changeover — Day A commenced",                         SUCCESS_COLOR),
+    ("2025-11-30 22:11", "INFO",   "FT-301 flow interruption auto-recovered",                    SUCCESS_COLOR),
+    ("2025-11-30 20:00", "ACTION", "Operator P-202 pump inspection initiated",                   INFO_COLOR),
+    ("2025-11-30 18:45", "ALARM",  "High Temperature alarm — Reactor R-401 reached 131°C",      CRITICAL_COLOR),
+    ("2025-11-30 18:50", "ACTION", "Cooling loop CL-1 flow rate increased by operator",         INFO_COLOR),
+    ("2025-11-30 18:55", "INFO",   "Reactor R-401 temperature normalized — 112°C",              SUCCESS_COLOR),
+    ("2025-11-30 14:00", "INFO",   "Daily sensor calibration check completed — all OK",          SUCCESS_COLOR),
+]
+
+def _event_color(event_type):
+    return {"ALARM": CRITICAL_COLOR, "ACTION": INFO_COLOR, "WARNING": WARNING_COLOR}.get(event_type, SUCCESS_COLOR)
+
+def _build_event_timeline(events):
+    return html.Div([
+        html.Div([
+            html.Div(style={"width": "3px", "backgroundColor": ev[3],
+                            "borderRadius": "2px", "flexShrink": "0", "margin": "4px 16px 4px 4px"}),
+            html.Div([
+                html.Span(ev[0], style={"fontSize": "10px", "fontFamily": "monospace", "color": "var(--text-dimmed)", "marginRight": "10px"}),
+                html.Span(ev[1], style={"fontSize": "9px", "fontWeight": "700", "padding": "1px 6px",
+                                         "borderRadius": "2px", "backgroundColor": "var(--bg-surface)",
+                                         "color": ev[3], "border": f"1px solid {ev[3]}",
+                                         "letterSpacing": "0.06em", "marginRight": "10px"}),
+                html.Span(ev[2], style={"fontSize": "12px", "color": "var(--text-primary)"}),
+            ], style={"flex": "1", "padding": "6px 0"}),
+        ], style={"display": "flex", "alignItems": "flex-start",
+                  "padding": "8px 4px", "borderBottom": "1px solid var(--border-color)"})
+        for ev in events
+    ])
+
+@app.callback(
+    Output("events-log-container", "children"),
+    Input("interval-component", "n_intervals"),
+    State("auth-store", "data"),
+)
+def poll_events_log(n, auth_data):
+    if not n or n % 5 != 0:
+        raise dash.exceptions.PreventUpdate
+
+    # Try backend if real token
+    if auth_data and auth_data.get("token") and auth_data.get("token") != "demo":
+        try:
+            r = requests.get(
+                f"{BACKEND_URL}/api/events?limit=50",
+                headers={"Authorization": f"Bearer {auth_data['token']}"},
+                timeout=2
+            )
+            if r.status_code == 200:
+                rows = r.json()
+                events = [
+                    (ev.get("timestamp", "")[:16], ev.get("event_type", "INFO"),
+                     ev.get("description", ""), _event_color(ev.get("event_type", "INFO")))
+                    for ev in rows
+                ]
+                if events:
+                    return _build_event_timeline(events)
+        except Exception:
+            pass
+
+    # Demo fallback
+    return _build_event_timeline(DEMO_EVENTS)
+
+
+# ── PROCESS MAP P&ID CALLBACK ────────────────────────────────────────────────
+@app.callback(
+    Output("process-map-graph", "figure"),
+    Input("latest-data-store", "data"),
+)
+def update_process_map(data):
+    temp = data.get("temperature", 100) if data else 100
+    reactor_hot = temp > 110
+
+    # Equipment box definitions: (x0, x1, y0, y1, label, is_reactor)
+    equipment = [
+        (0.05, 0.22, 0.55, 0.70, "P-101\nFeed Pump",    False),
+        (0.30, 0.50, 0.70, 0.85, "HX-1\nHeater",        False),
+        (0.55, 0.80, 0.55, 0.80, "R-401\nReactor",      True),
+        (0.55, 0.80, 0.25, 0.45, "CL-1\nCooling Loop", False),
+        (0.30, 0.50, 0.25, 0.40, "S-101\nSeparator",    False),
+        (0.05, 0.22, 0.15, 0.35, "T-5\nStorage",        False),
+    ]
+
+    # Pipe connections: (x0, y0, x1, y1)
+    pipes = [
+        (0.22, 0.625, 0.30, 0.775),
+        (0.50, 0.775, 0.55, 0.675),
+        (0.675, 0.55, 0.675, 0.45),
+        (0.55, 0.35,  0.50, 0.325),
+        (0.30, 0.325, 0.22, 0.25),
+    ]
+
+    shapes = []
+    annotations = []
+
+    # Equipment boxes
+    for x0, x1, y0, y1, label, is_reactor in equipment:
+        if is_reactor:
+            fill = "rgba(239,83,80,0.15)" if reactor_hot else "rgba(0,230,118,0.08)"
+            border = "#EF5350" if reactor_hot else "#27272a"
+        else:
+            fill = "rgba(38,198,218,0.05)"
+            border = "#27272a"
+
+        shapes.append(dict(
+            type="rect", x0=x0, x1=x1, y0=y0, y1=y1,
+            fillcolor=fill, line=dict(color=border, width=1),
+            xref="x", yref="y"
+        ))
+        annotations.append(dict(
+            x=(x0 + x1) / 2, y=(y0 + y1) / 2,
+            text=label, showarrow=False,
+            font=dict(size=10, color="#8B949E", family="Inter, sans-serif"),
+            xanchor="center", yanchor="middle",
+            xref="x", yref="y"
+        ))
+
+    # Pipe lines
+    for px0, py0, px1, py1 in pipes:
+        shapes.append(dict(
+            type="line", x0=px0, y0=py0, x1=px1, y1=py1,
+            line=dict(color="#27272a", width=1.5),
+            xref="x", yref="y"
+        ))
+
+    # Flow direction arrows (small triangles via annotations)
+    arrow_pts = [
+        (0.26, 0.70,  "\u25b6"),  # P-101 -> HX-1
+        (0.525, 0.725, "\u25b6"), # HX-1 -> R-401
+        (0.675, 0.50,  "\u25bc"), # R-401 -> CL-1
+        (0.525, 0.34,  "\u25c0"), # CL-1 -> S-101
+        (0.26, 0.29,   "\u25c0"), # S-101 -> T-5
+    ]
+    for ax, ay, arrow in arrow_pts:
+        annotations.append(dict(
+            x=ax, y=ay, text=arrow, showarrow=False,
+            font=dict(size=8, color="#484F58"),
+            xanchor="center", yanchor="middle",
+            xref="x", yref="y"
+        ))
+
+    # Live reading annotation on reactor
+    annotations.append(dict(
+        x=0.675, y=0.53,
+        text=f"{temp:.0f}\u00b0C",
+        showarrow=False,
+        font=dict(size=9, color="#EF5350" if reactor_hot else "#00E676",
+                  family="monospace"),
+        xanchor="center", yanchor="top",
+        xref="x", yref="y"
+    ))
+
+    fig = go.Figure()
+    fig.update_layout(
+        shapes=shapes,
+        annotations=annotations,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=400,
+        margin=dict(l=10, r=10, t=30, b=10),
+        xaxis=dict(visible=False, range=[0, 1]),
+        yaxis=dict(visible=False, range=[0, 1]),
+        title=dict(
+            text="Reactor Line 4 \u2014 Live P&ID",
+            font=dict(size=11, color="#484F58"),
+            x=0.5, xanchor="center"
+        ),
+    )
+    return fig
+
+
+# ── SHIFT HANDOVER EXPORT ──────────────────────────────────────────────────
+@app.callback(
+    Output("shift-export-feedback", "children"),
+    Output("shift-export-feedback", "style"),
+    Input("shift-export-btn", "n_clicks"),
+    State("latest-data-store", "data"),
+    prevent_initial_call=True
+)
+def export_shift_handover(n_clicks, live_data):
+    if not n_clicks:
+        raise dash.exceptions.PreventUpdate
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    file_ts = datetime.now().strftime("%Y%m%d_%H%M")
+
+    # Sensor readings
+    temp = f"{live_data['temperature']:.1f} \u00b0C" if live_data else "N/A"
+    pres = f"{live_data['pressure']:.1f} PSI" if live_data else "N/A"
+    rpm_val = f"{live_data['rpm']:.0f}" if live_data else "N/A"
+
+    # Alarm status
+    alarm_line = "All systems nominal"
+    if live_data:
+        alerts_raw, _ = analyze_data(live_data)
+        crit_count = sum(1 for lvl, _ in alerts_raw if lvl == "CRITICAL")
+        warn_count = sum(1 for lvl, _ in alerts_raw if lvl == "WARNING")
+        active = crit_count + warn_count
+        if active > 0:
+            alarm_line = f"{active} active alarm(s) — {crit_count} critical, {warn_count} warning"
+
+    shifts_data = [
+        ("Day A",  "06:00\u201314:00", "2025-12-01", "Sam R.",    "22 / 26", "142 t", "2 alarms", "Normal"),
+        ("Night B", "22:00\u201306:00", "2025-11-30", "Maria L.",  "24 / 26", "138 t", "5 alarms", "P-202 Fault"),
+        ("Day B",  "06:00\u201314:00", "2025-11-30", "Carlos M.", "26 / 26", "155 t", "1 alarm",  "Normal"),
+        ("Night A", "22:00\u201306:00", "2025-11-29", "Sam R.",    "25 / 26", "151 t", "3 alarms", "Normal"),
+        ("Day A",  "06:00\u201314:00", "2025-11-29", "Sam R.",    "26 / 26", "158 t", "0 alarms", "Normal"),
+    ]
+
+    shift_rows = ""
+    for s in shifts_data:
+        note_color = "#D32F2F" if s[7] != "Normal" else "#388E3C"
+        shift_rows += f"""<tr>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;font-weight:600">{s[0]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;font-family:monospace">{s[1]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;color:#666">{s[2]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0">{s[3]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0">{s[4]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;font-weight:700;color:#388E3C">{s[5]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0">{s[6]}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid #e0e0e0;color:{note_color};font-weight:600">{s[7]}</td>
+        </tr>"""
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shift Handover Report — {now_str}</title>
+<style>
+  body {{ font-family: Inter, Arial, sans-serif; background: #fff; color: #1a1a1a; margin: 0; padding: 32px 48px; }}
+  h1 {{ font-size: 22px; font-weight: 700; margin-bottom: 4px; }}
+  .subtitle {{ font-size: 12px; color: #888; margin-bottom: 24px; }}
+  .section {{ font-size: 11px; font-weight: 700; color: #888; letter-spacing: 0.1em; text-transform: uppercase; margin: 24px 0 8px; }}
+  table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+  th {{ background: #f5f5f5; font-size: 10px; font-weight: 700; color: #666; letter-spacing: 0.08em;
+       text-transform: uppercase; padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: left; }}
+  .readings {{ display: flex; gap: 32px; margin-bottom: 16px; }}
+  .reading {{ background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 6px; padding: 16px 24px; }}
+  .reading-label {{ font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }}
+  .reading-value {{ font-size: 20px; font-weight: 700; color: #1a1a1a; }}
+  .alarm-status {{ font-size: 13px; padding: 10px 16px; border-radius: 4px; margin-bottom: 16px; font-weight: 600; }}
+  .alarm-ok {{ background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }}
+  .alarm-active {{ background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }}
+  .footer {{ margin-top: 32px; font-size: 10px; color: #aaa; border-top: 1px solid #e0e0e0; padding-top: 12px; }}
+</style>
+</head>
+<body>
+<h1>\u25a0 NEXUS IQ \u2014 Shift Handover Report</h1>
+<div class="subtitle">Generated: {now_str} | NEXUS IQ Industrial Intelligence Platform</div>
+
+<div class="section">Current Sensor Readings</div>
+<div class="readings">
+  <div class="reading"><div class="reading-label">Temperature</div><div class="reading-value">{temp}</div></div>
+  <div class="reading"><div class="reading-label">Pressure</div><div class="reading-value">{pres}</div></div>
+  <div class="reading"><div class="reading-label">RPM</div><div class="reading-value">{rpm_val}</div></div>
+</div>
+
+<div class="section">Alarm Status</div>
+<div class="alarm-status {"alarm-ok" if "nominal" in alarm_line else "alarm-active"}">{alarm_line}</div>
+
+<div class="section">Shift Handover Log</div>
+<table>
+<thead><tr>
+  <th>Shift</th><th>Hours</th><th>Date</th><th>Supervisor</th><th>Headcount</th><th>Output</th><th>Alarms</th><th>Notes</th>
+</tr></thead>
+<tbody>{shift_rows}</tbody>
+</table>
+
+<div class="footer">This report was auto-generated by NEXUS IQ. For questions, contact the shift supervisor.</div>
+</body>
+</html>"""
+
+    b64 = base64.b64encode(html_content.encode("utf-8")).decode("utf-8")
+
+    return (
+        html.A(
+            "\u2b07 Download Shift Handover Report",
+            href=f"data:text/html;base64,{b64}",
+            download=f"Shift_Handover_{file_ts}.html",
+            style={"color": "#00E676", "fontWeight": "700", "textDecoration": "underline",
+                   "fontSize": "12px", "fontFamily": "Inter, sans-serif"}
+        ),
+        {"display": "block", "marginBottom": "12px"}
+    )
 
 
 if __name__ == "__main__":
