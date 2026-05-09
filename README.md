@@ -40,7 +40,7 @@ Open [http://localhost:5000](http://localhost:5000) — login with `admin@hmi.co
 ```
 ┌─────────────┐    HTTP/JSON     ┌──────────────┐    SQLite   ┌──────────┐
 │  Dash App   │ ◄──────────────► │  FastAPI API │ ◄──────────►│ nexus.db │
-│  (port 5000)│                  │  (port 8000) │             └──────────┘
+│ (port 5000) │                  │  (port 8000) │             └──────────┘
 └─────────────┘                  └──────┬───────┘
                                         ▲
                                         │ POST /api/sensor/ingest
