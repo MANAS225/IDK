@@ -391,6 +391,68 @@ app.index_string = '''
     @keyframes toastIn  { from {opacity:0;transform:translateX(20px)} to {opacity:1;transform:translateX(0)} }
     @keyframes toastOut { from {opacity:1} to {opacity:0;height:0;padding:0;margin:0} }
     .hmi-toast-warn { border-color: #FFB300; border-left-color: #FFB300; color: #FFE082; }
+
+    /* ─── RESPONSIVE LAYOUT ──────────────────────────────────────────────────── */
+    .hamburger-btn {
+      display: none;
+      position: fixed; top: 14px; left: 14px; z-index: 1200;
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: 4px; color: #00E676; font-size: 20px; line-height: 1;
+      width: 40px; height: 40px; cursor: pointer;
+      align-items: center; justify-content: center;
+      padding: 0; transition: all 0.2s ease; font-family: 'Inter', sans-serif;
+    }
+    .hamburger-btn:hover { border-color: #00E676; box-shadow: 0 0 12px rgba(0,230,118,0.2); }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 1050; cursor: pointer;
+    }
+    .mobile-sidebar-open .sidebar-overlay { display: block; }
+    .mobile-sidebar-open #sidebar-op-wrapper > div,
+    .mobile-sidebar-open #sidebar-eng-wrapper > div,
+    .mobile-sidebar-open #sidebar-mgr-wrapper > div {
+      transform: translateX(0) !important;
+    }
+    @media (max-width: 960px) {
+      .hamburger-btn { display: flex; }
+      #sidebar-op-wrapper > div,
+      #sidebar-eng-wrapper > div,
+      #sidebar-mgr-wrapper > div {
+        transform: translateX(-110%) !important;
+        transition: transform 0.26s ease !important;
+        z-index: 1100 !important;
+        box-shadow: 6px 0 32px rgba(0,0,0,0.55) !important;
+      }
+      #page-content {
+        margin-left: 0 !important; margin-right: 0 !important;
+        padding: 68px 16px 28px !important;
+        width: 100% !important; max-width: 100vw !important;
+        box-sizing: border-box !important;
+      }
+      .col-3 { flex: 0 0 50% !important; max-width: 50% !important; }
+      .col-4, .col-5, .col-6, .col-7, .col-8, .col-9 {
+        flex: 0 0 100% !important; max-width: 100% !important;
+      }
+      .card-body { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+      .card-body table { min-width: 540px; }
+      #toast-container { right: 10px !important; left: 10px !important; width: auto !important; bottom: 14px !important; }
+      #login-container > div { flex-direction: column !important; }
+      #login-container > div > div:first-child { display: none !important; }
+      #login-container > div > div:last-child {
+        flex: 1 !important; width: 100% !important;
+        padding: 24px 16px !important; min-height: 100vh;
+      }
+      #login-container > div > div:last-child > div {
+        width: 100% !important; max-width: 440px !important; padding: 28px 20px !important;
+      }
+    }
+    @media (max-width: 576px) {
+      #page-content { padding: 60px 8px 20px !important; }
+      .col-3 { flex: 0 0 100% !important; max-width: 100% !important; }
+      h3 { font-size: 17px !important; margin-bottom: 14px !important; }
+      h4 { font-size: 11px !important; }
+      .metric-card .card-body h3 { font-size: 20px !important; }
+    }
   </style>
 </head>
 <body>
@@ -407,6 +469,24 @@ app.index_string = '''
         var isLight = document.body.classList.toggle('light-theme');
         var label = btn.querySelector('.theme-label');
         if (label) label.textContent = isLight ? 'Dark Theme' : 'Light Theme';
+      }
+      var ham = e.target.closest('#hamburger-btn');
+      if (ham) {
+        var isOpen = document.body.classList.toggle('mobile-sidebar-open');
+        ham.textContent = isOpen ? '\u2715' : '\u2630';
+        return;
+      }
+      var overlay = e.target.closest('#sidebar-overlay');
+      if (overlay) {
+        document.body.classList.remove('mobile-sidebar-open');
+        var hamBtn = document.getElementById('hamburger-btn');
+        if (hamBtn) hamBtn.textContent = '\u2630';
+      }
+      var navLink = e.target.closest('.nav-link');
+      if (navLink && window.innerWidth <= 960) {
+        document.body.classList.remove('mobile-sidebar-open');
+        var hamBtn2 = document.getElementById('hamburger-btn');
+        if (hamBtn2) hamBtn2.textContent = '\u2630';
       }
     });
   </script>
@@ -740,6 +820,10 @@ app.layout = html.Div([
     dcc.Store(id="last-toast-store",  data=None),
     dcc.Store(id="demo-mode-store",   data=False),
     dcc.Store(id="uptime-store",      data={"start": datetime.now().isoformat()}),
+
+    # ── HAMBURGER BUTTON + MOBILE OVERLAY ────────────────────────────────────
+    html.Button("\u2630", id="hamburger-btn", className="hamburger-btn"),
+    html.Div(id="sidebar-overlay", className="sidebar-overlay"),
 
     # ── LOGIN PAGE ─────────────────────────────────────────────────────────────
     html.Div(id="login-container", children=login_page,
